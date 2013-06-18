@@ -5,7 +5,8 @@
  * Copyright (C) 2004, Stephen Hemminger <shemminger@osdl.org>
  *
  * Extended by Lyatiss, Inc. <contact@lyatiss.com> to support 
- * per-connection sampling.
+ * per-connection sampling and added additional metrics. Please see
+ * the README.md file in the same directory for details.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
