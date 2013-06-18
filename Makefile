@@ -1,9 +1,3 @@
-#
-# Makefile for the Linux TCP/IP (INET) layer.
-#
-# Lyatiss, Inc. 2013 
-#
-
 
 #This won't work if the CONFIG_NET_TCPPROBE isn't already configured 
 #for the kernel 
