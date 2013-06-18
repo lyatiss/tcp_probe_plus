@@ -1,51 +1,30 @@
-# Tcp_probe Linux Kernel Module
-
+# tcp_probe Linux Kernel Module
 
 ## License
-
-tcpprobe - Observe the TCP flow with kprobes.
-
-The idea for this came from Werner Almesberger's umlsim
-Copyright (C) 2004, Stephen Hemminger <shemminger@osdl.org>
-
-Extended by Lyatiss, Inc. <contact@lyatiss.com> to support 
-per-connection sampling.
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- 
+Please review the:
+- "LICENSE" file that is part of this distribution and in the same directory as this "README.md" file
+- The header in the "tcp_probe.c" file
 
 ## Description
-- Based on tcp_probe.c LKM by Stephen Hemminger
-- Per-connection sampling added by Lyatiss Inc.
+- Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
+- More statistics and per-connection sampling added by Lyatiss, Inc.
 
 ## Contents:
 This repository contains:
-
-- `dkms.conf` config file for dkms
+- `dkms.conf` Config file for dkms
 - `Makefile` Makefile 
-- `tcp_probe.c` modified tcp_probe that adds more stats and sample the connections (for 2.6+ kernels)
+- `tcp_probe.c` Modified tcp_probe that adds more stats and sample the connections (for 2.6+ kernels)
 - `LICENSE` GPLv2 license
 
 ## Installation instructions
-Follow the following instructions to build and install this LKM:
-
-- copy everything from this folder to the target machine for instance in `/usr/src/tcp_probe` 
+1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
 (same version as the one in the dkms.conf)
-- install DKMS (optional)
+2. (Optional) Install DKMS
 
-On Debian:     
-    
+3. Build the source code
+
+On Debian:
+
     apt-get install dkms
 
 Then:    
