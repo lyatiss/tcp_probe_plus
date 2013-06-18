@@ -18,27 +18,35 @@ This repository contains:
 
 ## Installation instructions
 1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
-(same version as the one in the dkms.conf)
 2. (Optional) Install DKMS
-
-3. Build the source code
-
 On Debian:
 
     apt-get install dkms
+    
+3. Build the source code
 
 Then:    
 
-- install kernel headers if necessary
+- install kernel headers if necessary 
+
+	ubuntu:/usr/src# uname -a
+	Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu 3.2.39-2 i686 GNU/Linux
+	ubuntu:/usr/src# apt-get install linux-headers-3.8-2-686-pae
+
 - build the LKM:
 
 Using DKMS:
 
 	ubuntu@host:/usr/src$ sudo dkms add tcp_probe
-	ubuntu@host:/usr/src$ sudo dkms build tcp_probe/${VERSION}
-	ubuntu@host:/usr/src$ sudo dkms install tcp_probe/${VERSION}
+	
+	Creating symlink /var/lib/dkms/tcp_probe/1.1.3/source ->
+                 /usr/src/tcp_probe-1.1.3
 
-Or using the kernel source:
+	DKMS: add completed.
+	ubuntu@host:/usr/src$ sudo dkms build tcp_probe/1.1.3
+	ubuntu@host:/usr/src$ sudo dkms install tcp_probe/1.1.3
+
+Or manually using the kernel source:
 
 	gentoo tcp_probe # make modules modules_install
 	make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules
