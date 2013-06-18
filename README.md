@@ -29,7 +29,7 @@ Then:
 
 - install kernel headers if necessary 
 
-	
+
     ubuntu:/usr/src# uname -a
     Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
     ubuntu:/usr/src# apt-get install linux-headers-3.2-0-4-686-pae
