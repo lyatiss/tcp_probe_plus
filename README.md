@@ -88,6 +88,28 @@ Data exported through `/proc/net/tcpprobe` are formatted using the following cod
 	 p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt,
 	 p->rttvar, p->rto, p->lost, p->retrans, p->inflight, p->frto_counter);
 
+| Field | Description |
+| ----- | ------------|
+| tv.tv_sec | second since tcpprobe loading |
+| tv.tv_nsec | extra millisecond |
+| saddr | source address |
+| sport | source port |
+| daddr | destination address |
+| dport | destination port |
+| length | length of the sampled packet |
+| snd_nxt | sequence number of next packet to be sent |
+| snd_una | sequence number of last not acked packet |
+| snd_cwnd | current congestion window (in packet) |
+| ssthresh | slow-start threshold (in packet) |
+| snd_wnd | received window (in packet) |
+| srtt | smoothed rtt (ms) |
+| rttvar | standard deviation of the rtt (ms) |
+| rto | number of Retransmit Timeout events |
+| lost | number of lost packets |
+| retrans | number of retransmitted packets |
+| inflight | number of packets sent but not acked |
+| frto_counter | number of spurious RTO events |
+ 
 ## Sysctl interface
 
 This LKM offers a sysctl interface to configure and tune it. 
