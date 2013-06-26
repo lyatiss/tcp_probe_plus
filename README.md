@@ -9,27 +9,27 @@ Please review the:
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
 - More statistics and per-connection sampling added by Lyatiss, Inc.
 
-## Contents:
+## Contents
 This repository contains:
 - `dkms.conf` Config file for dkms
 - `Makefile` Makefile 
 - `tcp_probe.c` Modified tcp_probe that does per-connection sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
 - `LICENSE` GPLv2 license
 
-## Installation instructions
+## Building and Installation
 1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
 2. (Optional) Install DKMS
 
 On Debian:
 
-    apt-get install dkms
+	apt-get install dkms
     
 3. Build the source code by running the Makefile
 4. Install Linux kernel headers if necessary
 
-    ubuntu:/usr/src# uname -a
-    Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
-    ubuntu:/usr/src# apt-get install linux-headers-3.2-0-4-686-pae
+	ubuntu:/usr/src# uname -a
+	Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
+	ubuntu:/usr/src# apt-get install linux-headers-3.2-0-4-686-pae
 	
 5. Build the LKM
 
@@ -63,16 +63,16 @@ Or manually using the kernel source:
 	gentoo tcp_probe # 
 	
 
-## Usage
+## Loading the Module
  
 	ubuntu@host:~$ sudo modprobe tcp_probe
 	ubuntu@host:~$ sudo cat /proc/net/tcpprobe
 	2.178670575 10.160.229.127:22 10.2.146.10:65221 80 0x3d58a46e 0x3d58a46e 6 2147483647 524280 43 53 255 0 0 0 0
 	...
 
-## Exported data
+## Exported Data
 
-Data exported through `/proc/net/tcpprobe` are formatted using the following code:
+The data collected by the LKM exported through `/proc/net/tcpprobe` and is formatted using the following code:
 
  	return scnprintf(tbuf, n,
 	 "%lu.%09lu %pI4:%u %pI4:%u %d %#llx %#x %u %u %u %u %u %u %u %u %u %u\n",
@@ -86,31 +86,31 @@ Data exported through `/proc/net/tcpprobe` are formatted using the following cod
 
 | Field | Description |
 | ----- | ------------|
-| tv.tv_sec | second since tcpprobe loading |
-| tv.tv_nsec | extra millisecond |
-| saddr | source address |
-| sport | source port |
-| daddr | destination address |
-| dport | destination port |
-| length | length of the sampled packet |
-| snd_nxt | sequence number of next packet to be sent |
-| snd_una | sequence number of last not acked packet |
-| snd_cwnd | current congestion window (in packet) |
-| ssthresh | slow-start threshold (in packet) |
-| snd_wnd | received window (in packet) |
-| srtt | smoothed rtt (ms) |
-| rttvar | standard deviation of the rtt (ms) |
-| rto | number of Retransmit Timeout events |
-| lost | number of lost packets |
-| retrans | number of retransmitted packets |
-| inflight | number of packets sent but not acked |
-| frto_counter | number of spurious RTO events |
+| tv.tv_sec | Seconds since tcpprobe loading |
+| tv.tv_nsec | Extra milliseconds since tcpprobe loading |
+| saddr | Source Address |
+| sport | Source Port |
+| daddr | Destination Address |
+| dport | Destination Port |
+| length | Length of the sampled packet |
+| snd_nxt | Sequence number of next packet to be sent |
+| snd_una | Sequence number of last unacknowledged packet |
+| snd_cwnd | Current congestion window size (in number of packets) |
+| ssthresh | Slow-start threshold (in number of packets) |
+| snd_wnd | Receive window size (in number of packets) |
+| srtt | Smoothed rtt (in ms) |
+| rttvar | Standard deviation of the rtt (in ms) |
+| rto | Number of retransmit timeout events |
+| lost | Number of lost packets |
+| retrans | Number of retransmitted packets |
+| inflight | Number of packets sent but not yet acked |
+| frto_counter | Number of spurious RTO events |
  
 ## Sysctl interface
 
-This LKM offers a sysctl interface to configure and tune it. 
+This LKM offers a sysctl interface to configure it. 
 
-### Tuning
+### Configuration
 
 The following configuration parameters are available:
 
@@ -128,7 +128,7 @@ The following configuration parameters are available:
 
 #### Buffer size
 
-This parameter controls the size of the buffer that contains the sample before they are read from `/proc/net/tcpprobe`. 
+This parameter controls the size of the buffer that contains the samples before they are read from `/proc/net/tcpprobe`. 
 
 - default is 4096 packets
 - x: number of sampled packets the buffer can store
@@ -157,7 +157,7 @@ Example:
 
 #### Enable/Disable sampling
 
-This parameter enable or disable the sampling of the ACK packets. 
+This parameter enables or disables the sampling of the ACK packets.
 
 - 0: only log on cwnd changes
 - 1: log on every ack packet received
@@ -172,14 +172,14 @@ Example:
 
 The memory used by the flow table is controlled by two parameters:
 
-- maxflows : Maximum flows supported by kernel module at any point of time.
+- maxflows : Maximum number of flows supported by kernel module at any point of time.
 - hashsize : Hashtable bucket size.
 
 ##### hashsize
 
 This parameter defines the size of the hashtable buckets.
 
-- default size : automatically calculated 
+- default size: automatically calculated 
 - x: hashtable bucket size
 
 Example:
