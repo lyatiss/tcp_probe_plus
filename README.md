@@ -13,7 +13,7 @@ Please review the:
 This repository contains:
 - `dkms.conf` Config file for dkms
 - `Makefile` Makefile 
-- `tcp_probe.c` Modified tcp_probe that adds more stats and sample the connections (for 2.6+ kernels)
+- `tcp_probe.c` Modified tcp_probe that does per-connection sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
 - `LICENSE` GPLv2 license
 
 ## Installation instructions
