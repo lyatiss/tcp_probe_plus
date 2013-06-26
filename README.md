@@ -19,11 +19,12 @@ This repository contains:
 ## Installation instructions
 1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
 2. (Optional) Install DKMS
+
 On Debian:
 
     apt-get install dkms
     
-3. Build the source code
+3. Build the source code by running the 
 
 Then:    
 
