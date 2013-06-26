@@ -2,7 +2,7 @@
 
 ## License
 Please review the:
-- "LICENSE" file that is part of this distribution and in the same directory as this "README.md" file
+- "LICENSE" file that is part of this distribution and in the same directory as this file
 - The header in the "tcp_probe.c" file
 
 ## Description
