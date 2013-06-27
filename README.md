@@ -131,6 +131,7 @@ The following configuration parameters are available:
 #### Buffer size
 
 This parameter controls the minimum number of sampled packets that will be read from the `/proc/net/tcpprobe` buffer.
+
 NOTE: The read will block until the specified number of packets are available.
 
 - default is 4096 packets
