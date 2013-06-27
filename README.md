@@ -16,7 +16,7 @@ This repository contains:
 - `tcp_probe.c` Modified tcp_probe that does per-connection sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
 - `LICENSE` GPLv2 license
 
-## Building and Installation
+## Building the module
 1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
 2. (Optional) Install DKMS
 
@@ -65,7 +65,7 @@ This repository contains:
 		gentoo tcp_probe # 
 	
 
-## Loading the Module
+## Loading the module
  
 	ubuntu@host:~$ sudo modprobe tcp_probe
 	ubuntu@host:~$ sudo cat /proc/net/tcpprobe
@@ -74,7 +74,7 @@ This repository contains:
 
 ## Exported Data
 
-The data collected by the LKM exported through `/proc/net/tcpprobe` and is formatted using the following code:
+The data collected by the LKM is exported through `/proc/net/tcpprobe` and is formatted using the following code:
 
  	return scnprintf(tbuf, n,
 	 "%lu.%09lu %pI4:%u %pI4:%u %d %#llx %#x %u %u %u %u %u %u %u %u %u %u\n",
