@@ -148,7 +148,7 @@ This parameter controls the debug level.
 
 - 0: no debug
 - 1: debug enabled
-- 1: trace enabled
+- 2: trace enabled
 
 Example:
 
