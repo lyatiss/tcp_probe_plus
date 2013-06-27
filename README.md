@@ -27,7 +27,7 @@ On Debian:
 3. Build the source code by running the Makefile
 4. Install Linux kernel headers
 
-On a standard Debian based system execute the following commands to determine and then install the correct kernel headers
+On Debian, execute the following commands to determine and then install the correct kernel headers
 
 	ubuntu:/usr/src# uname -a
 	Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
