@@ -20,49 +20,49 @@ This repository contains:
 1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
 2. (Optional) Install DKMS
 
-On Debian:
+	On Debian:
 
-	apt-get install dkms
+		apt-get install dkms
     
-3. Build the source code by running the Makefile
+3. Build the tcp_probe source code by running the Makefile
 4. Install Linux kernel headers
 
-On Debian, execute the following commands to determine and then install the correct kernel headers
+	On Debian, execute the following commands to determine and then install the correct kernel headers
 
-	ubuntu:/usr/src# uname -a
-	Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
-	ubuntu:/usr/src# apt-get install linux-headers-3.2-0-4-686-pae
+		ubuntu:/usr/src# uname -a
+		Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
+		ubuntu:/usr/src# apt-get install linux-headers-3.2-0-4-686-pae
 	
 5. Build the LKM
 
-Using DKMS:
+	Using DKMS:
 
-	ubuntu@host:/usr/src$ sudo dkms add tcp_probe
+		ubuntu@host:/usr/src$ sudo dkms add tcp_probe
 	
-	Creating symlink /var/lib/dkms/tcp_probe/1.1.3/source ->
-                 /usr/src/tcp_probe-1.1.3
+		Creating symlink /var/lib/dkms/tcp_probe/1.1.3/source ->
+        	         /usr/src/tcp_probe-1.1.3
 
-	DKMS: add completed.
-	ubuntu@host:/usr/src$ sudo dkms build tcp_probe/1.1.3
-	ubuntu@host:/usr/src$ sudo dkms install tcp_probe/1.1.3
+		DKMS: add completed.
+		ubuntu@host:/usr/src$ sudo dkms build tcp_probe/1.1.3
+		ubuntu@host:/usr/src$ sudo dkms install tcp_probe/1.1.3
 
-Or manually using the kernel source:
+	Or manually using the kernel source:
 
-	gentoo tcp_probe # make modules modules_install
-	make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules
-	make[1]: Entering directory `/usr/src/linux-3.7.10-gentoo'
-	  CC [M]  /usr/src/tcp_probe/tcp_probe.o
-	  Building modules, stage 2.
-	  MODPOST 1 modules
-	  CC      /usr/src/tcp_probe/tcp_probe.mod.o
-	  LD [M]  /usr/src/tcp_probe/tcp_probe.ko
-	make[1]: Leaving directory `/usr/src/linux-3.7.10-gentoo'
-	make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules_install
-	make[1]: Entering directory `/usr/src/linux-3.7.10-gentoo'
-	  INSTALL /usr/src/tcp_probe/tcp_probe.ko
-	  DEPMOD  3.7.10-gentoo
-	make[1]: Leaving directory `/usr/src/linux-3.7.10-gentoo'
-	gentoo tcp_probe # 
+		gentoo tcp_probe # make modules modules_install
+		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules
+		make[1]: Entering directory `/usr/src/linux-3.7.10-gentoo'
+		  CC [M]  /usr/src/tcp_probe/tcp_probe.o
+		  Building modules, stage 2.
+		  MODPOST 1 modules
+		  CC      /usr/src/tcp_probe/tcp_probe.mod.o
+		  LD [M]  /usr/src/tcp_probe/tcp_probe.ko
+		make[1]: Leaving directory `/usr/src/linux-3.7.10-gentoo'
+		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules_install
+		make[1]: Entering directory `/usr/src/linux-3.7.10-gentoo'
+		  INSTALL /usr/src/tcp_probe/tcp_probe.ko
+		  DEPMOD  3.7.10-gentoo
+		make[1]: Leaving directory `/usr/src/linux-3.7.10-gentoo'
+		gentoo tcp_probe # 
 	
 
 ## Loading the Module
