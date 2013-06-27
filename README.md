@@ -35,7 +35,7 @@ This repository contains:
 	
 5. Build the LKM
 
-	Using DKMS:
+	Using DKMS
 
 		ubuntu@host:/usr/src$ sudo dkms add tcp_probe
 	
@@ -46,7 +46,7 @@ This repository contains:
 		ubuntu@host:/usr/src$ sudo dkms build tcp_probe/1.1.3
 		ubuntu@host:/usr/src$ sudo dkms install tcp_probe/1.1.3
 
-	Or manually using the kernel source:
+	Or from the kernel source
 
 		gentoo tcp_probe # make modules modules_install
 		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules
