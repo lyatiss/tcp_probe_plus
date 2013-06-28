@@ -24,8 +24,7 @@ This repository contains:
 
 		apt-get install dkms
     
-3. Build the tcp_probe source code by running the Makefile
-4. Install Linux kernel headers
+3. Install Linux kernel headers
 
 	On Debian, execute the following commands to determine and then install the correct kernel headers
 
@@ -33,7 +32,7 @@ This repository contains:
 		Linux ubuntu 3.2.0-4-686-pae #1 SMP Ubuntu i686 GNU/Linux
 		ubuntu:/usr/src# apt-get install linux-headers-3.2-0-4-686-pae
 	
-5. Build the LKM
+4. Build and install the LKM
 
 	Using DKMS
 
