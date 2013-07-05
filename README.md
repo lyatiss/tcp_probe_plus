@@ -197,7 +197,7 @@ Max flow (see maxflows) has a default value of 2 million flows (2000000).
 
 The minimum hashtable size is 32 slots. If you explicitly set a lower value, it will be reset to 32.
 
-If you leave the hashtable size to be auto-calculated, then it is based on system memory availability as coded below but capped at 16,384 slots.
+If you leave the hashtable size to be auto-calculated, then it is based on system memory availability, as coded below, and capped at 16,384 slots.
 
     /* determine hash size (idea from nf_conntrack_core.c) */
     if (!hashsize) {
