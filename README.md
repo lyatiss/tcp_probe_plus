@@ -158,12 +158,12 @@ Example:
 	ubuntu@host:~$ sudo sh -c 'echo 0 > /proc/sys/net/lyatiss_cw_tcpprobe/debug'
 
 
-#### Enable/Disable sampling
+#### Sample every ACK packet or only on Congestion Window change
 
-This parameter enables or disables the sampling of the ACK packets.
+This parameter determines how ACK packets are sampled.
 
-- 0: only log on cwnd changes
-- 1: log on every ack packet received
+- 0: only sample on cwnd changes
+- 1: sample on every ack packet received
 
 Example:
 
