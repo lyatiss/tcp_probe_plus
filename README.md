@@ -214,9 +214,9 @@ If you leave the hashtable size to be auto-calculated, then it is based on syste
 
 ##### maxflows
 
-This parameter controls the maximum number of flows the LKM will track.
+This parameter controls the maximum number of flows that this module will track.
 
-- default of 2000000 flows
+- default: 2,000,000 flows
 - x: maximum number of flows to track
 
 Example:
