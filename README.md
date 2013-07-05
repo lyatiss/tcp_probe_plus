@@ -255,7 +255,7 @@ Example:
 
 ### Statistics
 
-The LKM offers some statistics about its internal behavior.
+This module offers several statistics about its internal behavior.
 
 	ubuntu@host:~$ more /proc/net/stat/lyatiss_cw_tcpprobe
 	Flows: active 4 mem 0K
@@ -271,7 +271,7 @@ Description:
 	- active: Number of active flows being monitored by the module at present.
 	- mem: Total memory used by the flow table to monitor the current set of flows.
 - Hash
-	- size: Number of hash table buckets.
+	- size: Number of slots in the hash table (hashtable size).
 	- mem: Total memory used by the hash table.
 - hash_stat
 	- search_flows: Number of flows looked up so far in the hash table.
@@ -281,8 +281,8 @@ Description:
 	- purge_in_progress: Number of ACK packets skipped by this module because flow purging was in progress (NOTE: this requires locking the flow table).
 	- ring_full: Number of ACK packets dropped because of a slow reader (NOTE: User space process reading `/proc/net/tcpprobe`)
 - conn_drop
-	- maxlfow_reached: New flow was skipped because maximum number of flows (2 million by default) has reached.
-	- memory_alloc_failed: New flow was skipped because module was unable to allocate memory for new flow entry.
+	- maxlfow_reached: New flow was skipped because maximum number of flows (2 million by default) has already been reached.
+	- memory_alloc_failed: New flow was skipped because module was unable to allocate memory for the new flow entry.
 - err
 	- multiple_reader: Module detected multiple readers while writing to `/proc/net/tcpprobe`. Note that multiple readers are not supported. Each reader will see only part of the flow.
 	- copy_failed: Unable to copy the data to the user-space.
