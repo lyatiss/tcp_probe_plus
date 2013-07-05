@@ -176,14 +176,16 @@ Example:
 The memory used by the flow table is controlled by two parameters:
 
 - maxflows: Maximum number of flows tracked by this module.
-- hashsize: Hashtable bucket size. This is a more granular control that determines the maximum number of flows, that have the same hash value, that will be tracked.
+- hashsize: Size of the hashtable.
 
 ##### hashsize
 
-This parameter defines the size of the hashtable buckets.
+This parameter defines the size of the hashtable.
 
 - default size: automatically calculated - similar to the netfilter connection tracker
-- x: hashtable bucket size
+- x: size of the hashtable - number of slots that the hashtable has
+
+A linked list is used to track flows that hash to the same slot in the hashtable.
 
 Example:
 
@@ -191,8 +193,8 @@ Example:
 	0
 	ubuntu@host:~$ sudo sh -c 'echo 16384 > /proc/sys/net/lyatiss_cw_tcpprobe/hashsize'
 
-Max flow (see maxflows) has default value of 2 million flows (2000000). Hashtable size is capped to 16384 and minimum size is enforced to 32. 
-Hashtable size if not specified is calculated based on the availability of the memory in the system as below.
+Max flow (see maxflows) has a default value of 2 million flows (2000000). The hashtable size is capped at 16384 slots and the minimum size is 32 slots.
+If the Hashtable size if not specified is calculated based on the availability of the memory in the system as below.
 
     /* determine hash size (idea from nf_conntrack_core.c) */
     if (!hashsize) {
