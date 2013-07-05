@@ -230,7 +230,7 @@ Example:
 This parameter controls the port-based filtering of the flows to track.
 
 - 0: no filtering
-- x: port to match
+- x: port to match. This is a single port number. If it matches any of the send or receive port, then the flow will be tracked.
 
 Example:
 
