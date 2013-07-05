@@ -175,14 +175,14 @@ Example:
 
 The memory used by the flow table is controlled by two parameters:
 
-- maxflows: Maximum number of flows supported by kernel module at any point of time.
-- hashsize: Hashtable bucket size.
+- maxflows: Maximum number of flows tracked by this module.
+- hashsize: Hashtable bucket size. This is a more granular control that determines the maximum number of flows, that have the same hash value, that will be tracked.
 
 ##### hashsize
 
 This parameter defines the size of the hashtable buckets.
 
-- default size: automatically calculated 
+- default size: automatically calculated - similar to the netfilter connection tracker
 - x: hashtable bucket size
 
 Example:
