@@ -7,7 +7,7 @@ Please review the:
 
 ## Description
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
-- More statistics and per-connection sampling added by Lyatiss, Inc.
+- More statistics and sampling options added by Lyatiss, Inc.
 
 ## Contents
 This repository contains:
