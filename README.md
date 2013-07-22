@@ -9,7 +9,9 @@ Please review the:
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
 - More statistics and sampling options added by Lyatiss, Inc.
 - Statistics added
-	- aaa
+	- rttvar: The Round-Trip Time Variation as per RFC 2988
+	- rto: The current retransmit timeout in milliseconds
+	- lost: The number of packet currently considered has being lost
 
 ## Contents
 This repository contains:
