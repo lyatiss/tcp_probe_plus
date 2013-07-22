@@ -7,11 +7,17 @@ Please review the:
 
 ## Description
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
-- More statistics and sampling options added by Lyatiss, Inc.
-- Statistics added
+- More statistics added by Lyatiss, Inc.
 	- rttvar: The Round-Trip Time Variation as per RFC 2988
 	- rto: The current retransmit timeout in milliseconds
-	- lost: The number of packet currently considered has being lost
+	- lost: The number of packets currently considered to be lost
+	- retrans: The number of packet retransmitted since the connection was established
+	- inflight: The number of packets sent but not acknowledged yet
+	- frto_counter: A counter to track the Forward RTO-Recovery algorithm as described in RFC 4138
+- More sampling options added by Lyatiss, Inc.
+	- There are two options
+		- Sample an ACK every sampling period (controlled by the Probe time setting as described below), or
+		- Sample an ACK only if the congestion window has changed every sampling period
 
 ## Contents
 This repository contains:
