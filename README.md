@@ -8,12 +8,14 @@ Please review the:
 ## Description
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
 - More statistics and sampling options added by Lyatiss, Inc.
+- Statistics added
+-- aaa
 
 ## Contents
 This repository contains:
 - `dkms.conf` Config file for dkms
 - `Makefile` Makefile 
-- `tcp_probe.c` Modified tcp_probe that does per-connection sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
+- `tcp_probe.c` Modified tcp_probe that does the sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
 - `LICENSE` GPLv2 license
 
 ## Building the module
