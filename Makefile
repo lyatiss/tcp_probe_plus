@@ -3,7 +3,7 @@
 #for the kernel 
 #obj-$(CONFIG_NET_TCPPROBE) += tcp_probe.o
 
-obj-m += tcp_probe.o
+obj-m += tcp_probe_plus.o
 
 all: modules
 

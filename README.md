@@ -1,9 +1,9 @@
-# tcp_probe Linux Kernel Module
+# tcp_probe_plus Linux Kernel Module
 
 ## License
 Please review the:
 - "LICENSE" file that is part of this distribution and in the same directory as this file
-- The header in the "tcp_probe.c" file
+- The header in the "tcp_probe_plus.c" file
 
 ## Description
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
@@ -23,11 +23,11 @@ Please review the:
 This repository contains:
 - `dkms.conf` Config file for dkms
 - `Makefile` Makefile 
-- `tcp_probe.c` Modified tcp_probe that does the sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
+- `tcp_probe_plus.c` Modified tcp_probe that does the sampling and collects more statistics (NOTE: Works on Linux kernel versions 2.6 and higher)
 - `LICENSE` GPLv2 license
 
 ## Building the module
-1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe` 
+1. Copy all the files in this folder to the target directory on your machine, e.g., `/usr/src/tcp_probe_plus` 
 2. (Optional) Install DKMS
 
 	On Debian:
@@ -46,37 +46,37 @@ This repository contains:
 
 	Using DKMS
 
-		ubuntu@host:/usr/src$ sudo dkms add tcp_probe
+		ubuntu@host:/usr/src$ sudo dkms add tcp_probe_plus
 	
-		Creating symlink /var/lib/dkms/tcp_probe/1.1.3/source ->
-        	         /usr/src/tcp_probe-1.1.3
+		Creating symlink /var/lib/dkms/tcp_probe_plus/1.1.3/source ->
+        	         /usr/src/tcp_probe_plus-1.1.3
 
 		DKMS: add completed.
-		ubuntu@host:/usr/src$ sudo dkms build tcp_probe/1.1.3
-		ubuntu@host:/usr/src$ sudo dkms install tcp_probe/1.1.3
+		ubuntu@host:/usr/src$ sudo dkms build tcp_probe_plus/1.1.3
+		ubuntu@host:/usr/src$ sudo dkms install tcp_probe_plus/1.1.3
 
 	Or from the kernel source
 
-		gentoo tcp_probe # make modules modules_install
-		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules
+		gentoo tcp_probe_plus # make modules modules_install
+		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe_plus modules
 		make[1]: Entering directory `/usr/src/linux-3.7.10-gentoo'
-		  CC [M]  /usr/src/tcp_probe/tcp_probe.o
+		  CC [M]  /usr/src/tcp_probe_plus/tcp_probe_plus.o
 		  Building modules, stage 2.
 		  MODPOST 1 modules
-		  CC      /usr/src/tcp_probe/tcp_probe.mod.o
-		  LD [M]  /usr/src/tcp_probe/tcp_probe.ko
+		  CC      /usr/src/tcp_probe_plus/tcp_probe_plus.mod.o
+		  LD [M]  /usr/src/tcp_probe_plus/tcp_probe_plus.ko
 		make[1]: Leaving directory `/usr/src/linux-3.7.10-gentoo'
-		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe modules_install
+		make -C /lib/modules/3.7.10-gentoo/build M=/usr/src/tcp_probe_plus modules_install
 		make[1]: Entering directory `/usr/src/linux-3.7.10-gentoo'
-		  INSTALL /usr/src/tcp_probe/tcp_probe.ko
+		  INSTALL /usr/src/tcp_probe_plus/tcp_probe_plus.ko
 		  DEPMOD  3.7.10-gentoo
 		make[1]: Leaving directory `/usr/src/linux-3.7.10-gentoo'
-		gentoo tcp_probe # 
+		gentoo tcp_probe_plus # 
 	
 
 ## Loading the module
  
-	ubuntu@host:~$ sudo modprobe tcp_probe
+	ubuntu@host:~$ sudo modprobe tcp_probe_plus
 	ubuntu@host:~$ sudo cat /proc/net/tcpprobe
 	2.178670575 10.160.229.127:22 10.2.146.10:65221 80 0x3d58a46e 0x3d58a46e 6 2147483647 524280 43 53 255 0 0 0 0
 	...
