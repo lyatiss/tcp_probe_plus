@@ -18,6 +18,7 @@ Please review the:
 	- There are two options
 		- Sample an ACK every sampling period (controlled by the Probe time setting as described below), or
 		- Sample an ACK only if the congestion window has changed every sampling period
+	- Sampling is done by maintaining a connections table (see the Connection hash table section below for details)
 
 ## Contents
 This repository contains:
