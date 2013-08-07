@@ -5,8 +5,9 @@
  * Copyright (C) 2004, Stephen Hemminger <shemminger@osdl.org>
  *
  * Extended by Lyatiss, Inc. <contact@lyatiss.com> to support 
- * per-connection sampling and added additional metrics. Please see
- * the README.md file in the same directory for details.
+ * per-connection sampling, added additional metrics and signaling 
+ * of RST/FIN connections. Please see the README.md file in the same 
+ * directory for details.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +33,7 @@
 #include <linux/ktime.h>
 #include <linux/time.h>
 #include <linux/jhash.h>
+#include <linux/jiffies.h>
 #include <linux/list.h>
 #include <linux/version.h>
 #include <net/net_namespace.h>
@@ -41,7 +43,7 @@
 MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
 MODULE_DESCRIPTION("TCP cwnd snooper");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.1.3");
+MODULE_VERSION("1.1.4");
 
 static int port __read_mostly = 0;
 MODULE_PARM_DESC(port, "Port to match (0=all)");
@@ -71,6 +73,8 @@ static int debug __read_mostly = 0;
 MODULE_PARM_DESC(debug, "Enable debug messages (Default 0) debug=1, trace=2");
 module_param(debug, int , 0);
 
+static int purgetime __read_mostly = 300;
+MODULE_PARM_DESC(purgetime, "Max inactivity in seconds before purging a flow (Default 300 seconds)");
 
 static const char procname[] = "tcpprobe";
 
@@ -78,6 +82,7 @@ static const char procname[] = "tcpprobe";
 #define PROC_STAT_TCPPROBE "lyatiss_cw_tcpprobe"
 
 #define UINT32_MAX                 (u32)(~((u32) 0)) /* 0xFFFFFFFF         */
+#define UINT16_MAX                  (u16)(~((u16) 0)) /* 0xFFFF         */
 #define DEBUG_DISABLE 0
 #define DEBUG_ENABLE  1
 #define TRACE_ENABLE  2
@@ -131,6 +136,7 @@ struct tcpprobe_stat {
 	u64 notfound;            /* hash stat - not found */
 	u64 multiple_readers;    /* Multiple readers for /proc/net/tcpprobe */
 	u64 copy_error;          /* Userspace copy error */
+    u64 reset_flows; /* Number of FIN/RST received that caused to purge the flow */
 };
 
 #define TCPPROBE_STAT_INC(count) (__get_cpu_var(tcpprobe_stat).count++)
@@ -171,7 +177,6 @@ static struct kmem_cache *tcp_flow_cachep __read_mostly; /* tcp flow memory */
 static DEFINE_SPINLOCK(tcp_hash_lock); /* hash table lock */
 static LIST_HEAD(tcp_flow_list); /* all flows */
 static struct timer_list purge_timer;
-static int purge_time = 300; /* Default flow table purge time */
 static atomic_t flow_count = ATOMIC_INIT(0);
 static DEFINE_PER_CPU(struct tcpprobe_stat, tcpprobe_stat);
 
@@ -283,7 +288,7 @@ static void purge_timer_run(unsigned long dummy)
 	spin_lock(&tcp_hash_lock);
 	list_for_each_entry_safe(flow, temp, &tcp_flow_list, list) {
 		struct timespec tv = ktime_to_timespec(ktime_sub(tstamp, flow->tstamp));
-		if (tv.tv_sec >= purge_time) {
+		if (tv.tv_sec >= purgetime) {
 			PRINT_DEBUG("Purging flow src: %pI4 dst: %pI4"
 				    " src_port: %u dst_port: %u\n",
 				&flow->tuple.saddr, &flow->tuple.daddr,
@@ -297,7 +302,135 @@ static void purge_timer_run(unsigned long dummy)
 		}
 	}
 	spin_unlock(&tcp_hash_lock);
-	mod_timer(&purge_timer, jiffies + (HZ * purge_time));			
+	mod_timer(&purge_timer, jiffies + (HZ * purgetime));			
+}
+
+/*
+ * Utility function to write the flow record
+ * Assumes that the spin_lock on the tcp_probe has been taken
+ * before calling it
+ */
+static int write_flow(struct tcp_tuple *tuple, const struct tcp_sock *tp, ktime_t tstamp, 
+                      u64 cumulative_bytes, u16 length, u32 ssthresh){
+    
+    /* If log fills, just silently drop */
+    if (tcp_probe_avail() > 1) {
+        struct tcp_log *p = tcp_probe.log + tcp_probe.head;
+        
+        p->tstamp = tstamp; 
+        p->saddr = tuple->saddr;
+        p->sport = tuple->sport;
+        p->daddr = tuple->daddr;
+        p->dport = tuple->dport;
+        p->length = length;
+        /* update the cumulative bytes */
+        p->snd_nxt = cumulative_bytes;
+        p->snd_una = tp->snd_una;
+        p->snd_cwnd = tp->snd_cwnd;
+        p->snd_wnd = tp->snd_wnd;
+        p->ssthresh = ssthresh;
+        p->srtt = jiffies_to_usecs(tp->srtt)>> 3;
+        p->rttvar = jiffies_to_usecs(tp->rttvar);
+        p->lost = tp->lost_out;
+        p->retrans = tp->total_retrans;
+        p->inflight = tp->packets_out;
+        p->rto = p->srtt + (4 * p->rttvar);
+        p->frto_counter = tp->frto_counter;
+        
+        
+        tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
+    } else {
+        TCPPROBE_STAT_INC(ack_drop_ring_full);
+    }
+    tcp_probe.lastcwnd = tp->snd_cwnd;
+    return 0;
+}
+
+
+
+/*
+ * Hook inserted to be called before each time a socket is close
+ * This allow us to purge/flush the corresponding infos
+ * Note: arguments must match tcp_done()!
+ * 
+ */
+static int jtcp_done(struct sock *sk)
+{
+  
+    const struct tcp_sock *tp = tcp_sk(sk);
+    const struct inet_sock *inet = inet_sk(sk);
+    ktime_t tstamp = ktime_get();
+    struct tcp_tuple tuple;
+    struct tcp_hash_flow *tcp_flow;
+    unsigned int hash;
+    u64 cumulative_bytes = 0;
+    
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32)
+    tuple.saddr = inet->inet_saddr;
+    tuple.daddr = inet->inet_daddr;
+    tuple.sport = inet->inet_sport;
+    tuple.dport = inet->inet_dport;
+#else
+    tuple.saddr = inet->saddr;
+    tuple.daddr = inet->daddr;
+    tuple.sport = inet->sport;
+    tuple.dport = inet->dport;
+#endif
+	
+    PRINT_DEBUG("Reset flow src: %pI4 dst: %pI4"
+                " src_port: %u dst_port: %u\n",
+				&tuple.saddr, &tuple.daddr,
+                ntohs(tuple.sport), ntohs(tuple.dport));
+    
+    hash = hash_tcp_flow(&tuple);
+    /* Making sure that we are the only one touching this flow */
+    spin_lock(&tcp_hash_lock);
+    
+    tcp_flow = tcp_flow_find(&tuple, hash);
+    if (!tcp_flow) {
+        /*We just saw the FIN for this one so we can probably forget it */
+        PRINT_DEBUG("FIN for flow src: %pI4 dst: %pI4"
+                    " src_port: %u dst_port: %u but no corresponding hash\n",
+                    &tuple.saddr, &tuple.daddr,
+                    ntohs(tuple.sport), ntohs(tuple.dport));
+        spin_unlock(&tcp_hash_lock);
+        goto skip;
+    } else {
+        /*Retrieve the last value of the cumulative_bytes */
+        if (tp->snd_nxt > tcp_flow->last_seq_num) {
+			tcp_flow->cumulative_bytes += (tp->snd_nxt - tcp_flow->last_seq_num);
+		} else if (tp->snd_nxt != tcp_flow->last_seq_num) { /* Retransmits */
+			/* sequence number rollover. For 10 Gbits/sec flow this will
+             happen every 4 seconds */
+			tcp_flow->cumulative_bytes += ((UINT32_MAX - tcp_flow->last_seq_num) + tp->snd_nxt);
+		}
+		tcp_flow->last_seq_num = tp->snd_nxt;
+		cumulative_bytes = tcp_flow->cumulative_bytes; 
+        
+    }
+
+    //Get the other lock and write
+    spin_lock(&tcp_probe.lock);
+    TCPPROBE_STAT_INC(reset_flows);
+    write_flow(&tuple, tp, tstamp, 
+               cumulative_bytes, UINT16_MAX, tcp_current_ssthresh(sk));
+    
+    spin_unlock(&tcp_probe.lock);
+    
+    /* Release the flow tuple*/
+    // Remove from Hashtable
+    hlist_del(&tcp_flow->hlist);
+    // Remove from Global List
+    list_del(&tcp_flow->list);
+    // Free memory
+    tcp_hash_flow_free(tcp_flow);
+    
+    spin_unlock(&tcp_hash_lock);
+    wake_up(&tcp_probe.wait);
+
+skip:
+    jprobe_return();
+    return 0;
 }
 
 /*
@@ -307,10 +440,12 @@ static void purge_timer_run(unsigned long dummy)
 static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 			       struct tcphdr *th, unsigned len)
 {
+    
 	const struct tcp_sock *tp = tcp_sk(sk);
 	const struct inet_sock *inet = inet_sk(sk);
 	int should_write_flow = 0;
-	ktime_t tstamp = ktime_get();
+	u16 length = skb->len;
+    ktime_t tstamp = ktime_get();
 	struct tcp_tuple tuple;
 	struct tcp_hash_flow *tcp_flow;
 	unsigned int hash;
@@ -335,6 +470,7 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 		goto skip;
 	}
 	tcp_flow = tcp_flow_find(&tuple, hash);
+        
 	if (!tcp_flow) {
 		if (maxflows > 0 && atomic_read(&flow_count) >= maxflows) {
 			/* This is DOC attack prevention */
@@ -343,7 +479,11 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 				atomic_read(&flow_count), maxflows);
 		} else {
 			/* create an entry in hashtable */
-			tcp_flow = init_tcp_hash_flow(&tuple, tstamp, hash);
+            PRINT_DEBUG("Init new flow src: %pI4 dst: %pI4"
+                        " src_port: %u dst_port: %u\n",
+                        &tuple.saddr, &tuple.daddr,
+                        ntohs(tuple.sport), ntohs(tuple.dport));
+            tcp_flow = init_tcp_hash_flow(&tuple, tstamp, hash);
 			should_write_flow = 1;
 		}
 	} else {
@@ -375,36 +515,9 @@ static int jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 	    should_write_flow) {
 
 		spin_lock(&tcp_probe.lock);
-		/* If log fills, just silently drop */
-		if (tcp_probe_avail() > 1) {
-			struct tcp_log *p = tcp_probe.log + tcp_probe.head;
-
-			p->tstamp = tstamp; 
-			p->saddr = tuple.saddr;
-			p->sport = tuple.sport;
-			p->daddr = tuple.daddr;
-			p->dport = tuple.dport;
-			p->length = skb->len;
-			/* update the cumulative bytes */
-			p->snd_nxt = cumulative_bytes;
-			p->snd_una = tp->snd_una;
-			p->snd_cwnd = tp->snd_cwnd;
-			p->snd_wnd = tp->snd_wnd;
-			p->ssthresh = tcp_current_ssthresh(sk);
-			p->srtt = tp->srtt >> 3;
-			p->rttvar = tp->rttvar;
-			p->lost = tp->lost_out;
-		        p->retrans = tp->total_retrans;
-			p->inflight = tp->packets_out;
-			p->rto = (tp->srtt >> 3) + (4 * tp->rttvar);
-			p->frto_counter = tp->frto_counter;
-
-
-			tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
-		} else {
-			TCPPROBE_STAT_INC(ack_drop_ring_full);
-		}
-		tcp_probe.lastcwnd = tp->snd_cwnd;
+        write_flow(&tuple, tp, tstamp, 
+                   cumulative_bytes, length, tcp_current_ssthresh(sk));
+        
 		spin_unlock(&tcp_probe.lock);
 		wake_up(&tcp_probe.wait);
 		
@@ -420,6 +533,15 @@ static struct jprobe tcp_jprobe = {
 	},
 	.entry	= jtcp_rcv_established,
 };
+
+
+static struct jprobe tcp_jprobe_done = {
+    .kp = {
+        .symbol_name = "tcp_done",
+    },
+    .entry = jtcp_done,
+};
+
 
 static int tcpprobe_open(struct inode * inode, struct file * file)
 {
@@ -522,23 +644,24 @@ static int tcpprobe_seq_show(struct seq_file *seq, void *v)
 		stat.notfound += cpu_stat->notfound;
 		stat.multiple_readers += cpu_stat->multiple_readers;
 		stat.copy_error += cpu_stat->copy_error;
+        stat.reset_flows += cpu_stat->reset_flows;
 	}
 	seq_printf(seq, "Flows: active %u mem %uK\n", nr_flows,
 		(unsigned int)((nr_flows * sizeof(struct tcp_hash_flow)) >> 10));
 	seq_printf(seq, "Hash: size %u mem %uK\n",
 		hashsize, (unsigned int)((hashsize * sizeof(struct hlist_head)) >> 10));
-	seq_printf(seq, "cpu# hash_stat: <search_flows found new>, ack_drop: <purge_in_progress ring_full>, conn_drop: <maxflow_reached memory_alloc_failed>, err: <multiple_reader copy_failed>\n");
-	seq_printf(seq, "Total: hash_stat: %6llu %6llu %6llu, ack_drop: %6llu %6llu, conn_drop: %6llu %6llu, err: %6llu %6llu\n",
-			stat.searched, stat.found, stat.notfound,
+	seq_printf(seq, "cpu# hash_stat: <search_flows found new reset>, ack_drop: <purge_in_progress ring_full>, conn_drop: <maxflow_reached memory_alloc_failed>, err: <multiple_reader copy_failed>\n");
+	seq_printf(seq, "Total: hash_stat: %6llu %6llu %6llu %6llu, ack_drop: %6llu %6llu, conn_drop: %6llu %6llu, err: %6llu %6llu\n",
+			stat.searched, stat.found, stat.notfound, stat.reset_flows,
 			stat.ack_drop_purge, stat.ack_drop_ring_full,
 			stat.conn_maxflow_limit, stat.conn_memory_limit,
 			stat.multiple_readers, stat.copy_error);
 	if (num_present_cpus() > 1) {
 		for_each_present_cpu(cpu) {
 			struct tcpprobe_stat *cpu_stat = &per_cpu(tcpprobe_stat, cpu);
-			seq_printf(seq, "cpu%u: hash_stat: %6llu %6llu %6llu, ack_drop: %6llu %6llu, conn_drop: %6llu %6llu, err: %6llu %6llu\n",
+			seq_printf(seq, "cpu%u: hash_stat: %6llu %6llu %6llu %6llu, ack_drop: %6llu %6llu, conn_drop: %6llu %6llu, err: %6llu %6llu\n",
 				cpu,
-				cpu_stat->searched, cpu_stat->found, stat.notfound,
+				cpu_stat->searched, cpu_stat->found, stat.notfound, stat.reset_flows,
 				cpu_stat->ack_drop_purge, cpu_stat->ack_drop_ring_full,
 				cpu_stat->conn_maxflow_limit, cpu_stat->conn_memory_limit,
 				cpu_stat->multiple_readers, cpu_stat->copy_error);
@@ -616,7 +739,15 @@ static struct ctl_table tcpprobe_sysctl_table[] = {
 		.maxlen = sizeof(int),
 		.proc_handler = &proc_dointvec,
 	},
-	{ }
+	{ 
+        _CTL_NAME(8)
+		.procname = "purge_time",
+		.mode = 0644, 
+		.data = &purgetime,
+		.maxlen = sizeof(int),
+		.proc_handler = &proc_dointvec, 
+    },
+    {}
 };
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
@@ -698,7 +829,7 @@ static __init int tcpprobe_init(void)
 	tcp_hash_size = hashsize;
 	tcp_hash = alloc_hashtable(tcp_hash_size);
 	if (!tcp_hash) {
-		pr_err("Unable to creat tcp hashtable\n");
+		pr_err("Unable to create tcp hashtable\n");
 		goto err;
 	}
 	tcp_flow_cachep = kmem_cache_create("tcp_flow",
@@ -712,7 +843,7 @@ static __init int tcpprobe_init(void)
 		goto err_free_hash;
 	}	
 	setup_timer(&purge_timer, purge_timer_run, 0);
-	mod_timer(&purge_timer, jiffies + (HZ * purge_time));
+	mod_timer(&purge_timer, jiffies + (HZ * purgetime));
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
@@ -760,7 +891,13 @@ static __init int tcpprobe_init(void)
 		pr_err("Unable to register jprobe.\n");
 		goto err1;
 	}
-
+    
+    ret = register_jprobe(&tcp_jprobe_done);
+    if (ret) {
+		pr_err("Unable to register jprobe on tcp_done.\n");
+		goto err1;
+	}
+    
 	pr_info("TCP probe registered (port=%d) bufsize=%u probetime=%d maxflows=%u\n", 
 		port, bufsize, probetime, maxflows);
 	PRINT_DEBUG("Sizes tcp_hash_flow: %zu, hlist_head = %zu tcp_hash = %zu\n", 
@@ -792,6 +929,7 @@ static __exit void tcpprobe_exit(void)
 	remove_proc_entry(PROC_STAT_TCPPROBE, INIT_NET(proc_net_stat));
 	unregister_sysctl_table(tcpprobe_sysctl_header);
 	unregister_jprobe(&tcp_jprobe);
+    unregister_jprobe(&tcp_jprobe_done);
 	kfree(tcp_probe.log);
 	del_timer_sync(&purge_timer);
 	/* tcp flow table memory */

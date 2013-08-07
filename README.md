@@ -19,6 +19,7 @@ Please review the:
 		- Sample an ACK every sampling period (controlled by the Probe time setting as described below), or
 		- Sample an ACK only if the congestion window has changed every sampling period
 	- Sampling is done by maintaining a connections table (see the Connection hash table section below for details)
+- Add connection termination detection (reported as a magic value in the length field)
 
 ## Contents
 This repository contains:
@@ -104,7 +105,7 @@ The data collected by the LKM is exported through `/proc/net/tcpprobe` and is fo
 | sport | Source Port |
 | daddr | Destination Address |
 | dport | Destination Port |
-| length | Length of the sampled packet |
+| length | Length of the sampled packet (65535 when this is last sample of a connection)|
 | snd_nxt | Sequence number of next packet to be sent |
 | snd_una | Sequence number of last unacknowledged packet |
 | snd_cwnd | Current congestion window size (in number of packets) |
@@ -137,6 +138,7 @@ The following configuration parameters are available:
 	-rw-r--r-- 1 root root 0 Mar  6 00:18 maxflows
 	-rw-r--r-- 1 root root 0 Mar  6 00:18 port
 	-rw-r--r-- 1 root root 0 Mar  6 00:18 probetime
+	-rw-r--r-- 1 root root 0 Mar  6 00:18 purgetime
 
 #### Buffer size
 
@@ -264,6 +266,20 @@ Example:
 	ubuntu@host:~$ sudo sh -c 'echo 200 > /proc/sys/net/lyatiss_cw_tcpprobe/probetime'
 
 
+#### Purge time
+	
+Every `purgetime` the flows that are not active anymore are removed from the flow table. The purge time is configurable from user space. The default purge time is 300 s. This value could be passed as a module initialization parameter or changed using this parameter.
+
+- default is 300 s
+- x: purge time interval
+
+Example:
+
+	ubuntu@host:~$ more /proc/sys/net/lyatiss_cw_tcpprobe/purgetime
+	500
+	ubuntu@host:~$ sudo sh -c 'echo 200 > /proc/sys/net/lyatiss_cw_tcpprobe/purgetime'
+
+
 ### Statistics
 
 This module offers several statistics about its internal behavior.
@@ -271,9 +287,9 @@ This module offers several statistics about its internal behavior.
 	ubuntu@host:~$ more /proc/net/stat/lyatiss_cw_tcpprobe
 	Flows: active 4 mem 0K
 	Hash: size 4721 mem 36K
-	cpu# hash_stat: <search_flows found new>, ack_drop: <purge_in_progress ring_full>, 
+	cpu# hash_stat: <search_flows found new reset>, ack_drop: <purge_in_progress ring_full>, 
 	conn_drop: <maxflow_reached memory_alloc_failed>, err: <multiple_reader copy_failed>
-	Total: hash_stat:      0  25877    151, ack_drop:      0      0, 
+	Total: hash_stat:      0  25877    151    147, ack_drop:      0      0, 
 	conn_drop:      0      0, err:      0      0
 
 Description:
