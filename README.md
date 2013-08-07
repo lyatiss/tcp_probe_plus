@@ -50,12 +50,12 @@ This repository contains:
 
 		ubuntu@host:/usr/src$ sudo dkms add tcp_probe_plus
 	
-		Creating symlink /var/lib/dkms/tcp_probe_plus/1.1.3/source ->
-        	         /usr/src/tcp_probe_plus-1.1.3
+		Creating symlink /var/lib/dkms/tcp_probe_plus/1.1.4/source ->
+        	         /usr/src/tcp_probe_plus-1.1.4
 
 		DKMS: add completed.
-		ubuntu@host:/usr/src$ sudo dkms build tcp_probe_plus/1.1.3
-		ubuntu@host:/usr/src$ sudo dkms install tcp_probe_plus/1.1.3
+		ubuntu@host:/usr/src$ sudo dkms build tcp_probe_plus/1.1.4
+		ubuntu@host:/usr/src$ sudo dkms install tcp_probe_plus/1.1.4
 
 	Or from the kernel source
 
