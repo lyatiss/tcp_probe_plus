@@ -76,7 +76,7 @@ module_param(debug, int , 0);
 static int purgetime __read_mostly = 300;
 MODULE_PARM_DESC(purgetime, "Max inactivity in seconds before purging a flow (Default 300 seconds)");
 
-static const char procname[] = "tcpprobe";
+#define PROC_TCPPROBE "tcpprobe"
 
 #define PROC_SYSCTL_TCPPROBE  "lyatiss_cw_tcpprobe"
 #define PROC_STAT_TCPPROBE "lyatiss_cw_tcpprobe"
@@ -212,8 +212,13 @@ static struct tcp_hash_flow*
 tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 {
 	struct tcp_hash_flow *flow;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
 	struct hlist_node *pos;
 	hlist_for_each_entry(flow, pos, &tcp_hash[hash], hlist) {
+#else
+	//Second argument was removed 
+	hlist_for_each_entry(flow, &tcp_hash[hash], hlist) {
+#endif
 		if (tcp_tuple_equal(tuple, &flow->tuple)) {
 			TCPPROBE_STAT_INC(found);
 			return flow;
@@ -335,8 +340,12 @@ static int write_flow(struct tcp_tuple *tuple, const struct tcp_sock *tp, ktime_
         p->retrans = tp->total_retrans;
         p->inflight = tp->packets_out;
         p->rto = p->srtt + (4 * p->rttvar);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
         p->frto_counter = tp->frto_counter;
-        
+#else
+	   p->frto_counter = tp->frto;	
+#endif  
         
         tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
     } else {
@@ -862,12 +871,14 @@ static __init int tcpprobe_init(void)
 		pr_info("tcpprobe: registered: sysclt net.%s\n", PROC_SYSCTL_TCPPROBE);
 	}	
 	
-	proc_stat = create_proc_entry(PROC_STAT_TCPPROBE, S_IRUGO, INIT_NET(proc_net_stat));
+	//create_proc_entry has been deprecated by proc_create since 3.10
+	proc_stat = proc_create(PROC_STAT_TCPPROBE, S_IRUGO, INIT_NET(proc_net_stat), &tcpprobe_stat_fops); 
+
 	if (!proc_stat) {
 		pr_err("Unable to create /proc/net/stat/%s entry \n", PROC_STAT_TCPPROBE);
 		goto err_free_sysctl;
 	}
-	proc_stat->proc_fops = &tcpprobe_stat_fops;
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	proc_stat->owner = THIS_MODULE;
 #endif
@@ -881,7 +892,8 @@ static __init int tcpprobe_init(void)
 		goto err_free_proc_stat;
 	}
 
-	if (!proc_net_fops_create(&init_net, procname, S_IRUSR, &tcpprobe_fops)) {
+	//proc_net_fops_create has been deprecated by proc_create since 3.10
+	if (!proc_create(PROC_TCPPROBE, S_IRUSR, INIT_NET(proc_net), &tcpprobe_fops)) {
 		pr_err("Unable to create /proc/net/tcpprobe\n");
 		goto err_free_proc_stat;
 	}
@@ -907,10 +919,10 @@ static __init int tcpprobe_init(void)
 	PRINT_DEBUG("Sizes tcp_log = %zu\n", sizeof (struct tcp_log));
 	return 0;
  err1:
-	proc_net_remove(&init_net, procname); 
-err_free_proc_stat:
+	remove_proc_entry(PROC_TCPPROBE, INIT_NET(proc_net));
+ err_free_proc_stat:
 	remove_proc_entry(PROC_STAT_TCPPROBE, INIT_NET(proc_net_stat));
-err_free_sysctl:
+ err_free_sysctl:
 	unregister_sysctl_table(tcpprobe_sysctl_header);
  err0:
 	del_timer_sync(&purge_timer);
@@ -925,11 +937,11 @@ module_init(tcpprobe_init);
 
 static __exit void tcpprobe_exit(void)
 {
-	proc_net_remove(&init_net, procname);
+	remove_proc_entry(PROC_TCPPROBE, INIT_NET(proc_net));
 	remove_proc_entry(PROC_STAT_TCPPROBE, INIT_NET(proc_net_stat));
 	unregister_sysctl_table(tcpprobe_sysctl_header);
 	unregister_jprobe(&tcp_jprobe);
-    unregister_jprobe(&tcp_jprobe_done);
+	unregister_jprobe(&tcp_jprobe_done);
 	kfree(tcp_probe.log);
 	del_timer_sync(&purge_timer);
 	/* tcp flow table memory */
