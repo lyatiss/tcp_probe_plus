@@ -14,6 +14,9 @@ Please review the:
 	- retrans: The number of packet retransmitted since the connection was established
 	- inflight: The number of packets sent but not acknowledged yet
 	- frto_counter: A counter to track the Forward RTO-Recovery algorithm as described in RFC 4138
+	- rqueue: The number of bytes currently waiting to be read in the socket buffer a.ka. recvq
+	- wqueue: The number of bytes currently waiting to be sent in the socket buffer a.k.a. sendq
+
 - More sampling options added by Lyatiss, Inc.
 	- There are two options
 		- Sample an ACK every sampling period (controlled by the Probe time setting as described below), or
@@ -50,12 +53,12 @@ This repository contains:
 
 		ubuntu@host:/usr/src$ sudo dkms add tcp_probe_plus
 	
-		Creating symlink /var/lib/dkms/tcp_probe_plus/1.1.4/source ->
-        	         /usr/src/tcp_probe_plus-1.1.4
+		Creating symlink /var/lib/dkms/tcp_probe_plus/1.1.5/source ->
+        	         /usr/src/tcp_probe_plus-1.1.5
 
 		DKMS: add completed.
-		ubuntu@host:/usr/src$ sudo dkms build tcp_probe_plus/1.1.4
-		ubuntu@host:/usr/src$ sudo dkms install tcp_probe_plus/1.1.4
+		ubuntu@host:/usr/src$ sudo dkms build tcp_probe_plus/1.1.5
+		ubuntu@host:/usr/src$ sudo dkms install tcp_probe_plus/1.1.5
 
 	Or from the kernel source
 
@@ -80,7 +83,7 @@ This repository contains:
  
 	ubuntu@host:~$ sudo modprobe tcp_probe_plus
 	ubuntu@host:~$ sudo cat /proc/net/tcpprobe
-	2.178670575 10.160.229.127:22 10.2.146.10:65221 80 0x3d58a46e 0x3d58a46e 6 2147483647 524280 43 53 255 0 0 0 0
+	2.178670575 10.160.229.127:22 10.2.146.10:65221 80 0x3d58a46e 0x3d58a46e 6 2147483647 524280 43 53 255 0 0 0 0 0 0
 	...
 
 ## Exported Data
@@ -88,14 +91,15 @@ This repository contains:
 The data collected by the LKM is exported through `/proc/net/tcpprobe` and is formatted using the following code:
 
  	return scnprintf(tbuf, n,
-	 "%lu.%09lu %pI4:%u %pI4:%u %d %#llx %#x %u %u %u %u %u %u %u %u %u %u\n",
+	 "%lu.%09lu %pI4:%u %pI4:%u %d %#llx %#x %u %u %u %u %u %u %u %u %u %u %u %u\n",
 	 (unsigned long) tv.tv_sec,
 	 (unsigned long) tv.tv_nsec,
 	 &p->saddr, ntohs(p->sport),
 	 &p->daddr, ntohs(p->dport),
 	 p->length, p->snd_nxt, p->snd_una,
 	 p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt,
-	 p->rttvar, p->rto, p->lost, p->retrans, p->inflight, p->frto_counter);
+	 p->rttvar, p->rto, p->lost, p->retrans, p->inflight, p->frto_counter,
+	 p->rqueue, p->wqueue);
 
 | Field | Description |
 | ----- | ------------|
@@ -118,6 +122,8 @@ The data collected by the LKM is exported through `/proc/net/tcpprobe` and is fo
 | retrans | Number of retransmitted packets |
 | inflight | Number of packets sent but not yet acked |
 | frto_counter | Number of spurious RTO events |
+| rqueue | Number of bytes in the socket read queue |
+| wqueue | Number of bytes in the socket write queue |
  
 ## Sysctl interface
 
@@ -304,6 +310,7 @@ Description:
 	- search_flows: Number of flows looked up so far in the hash table.
 	- found: Number of flows found in the hash table.
 	- new: Number of new flow entries created so far.
+	- reset: Number of flows entries that have been invalidated because the flows have been closed/reset. 
 - ack_drop
 	- purge_in_progress: Number of ACK packets skipped by this module because flow purging was in progress (NOTE: this requires locking the flow table).
 	- ring_full: Number of ACK packets dropped because of a slow reader (NOTE: User space process reading `/proc/net/tcpprobe`)
