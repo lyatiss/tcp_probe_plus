@@ -37,7 +37,10 @@
 #include <linux/jiffies.h>
 #include <linux/list.h>
 #include <linux/version.h>
-#include <net/net_namespace.h>
+#include <linux/swap.h>
+#include <linux/random.h>
+#include <linux/vmalloc.h>
+
 
 #include <net/tcp.h>
 
@@ -100,6 +103,11 @@ MODULE_PARM_DESC(purgetime, "Max inactivity in seconds before purging a flow (De
 	  pr_info(fmt, ##arg);									\
 	}														\
   } while(0)
+
+#ifndef pr_err
+#define pr_err(fmt, arg...) pr_info(fmt, ##arg)
+#endif
+
 	
 struct tcp_tuple {
   __be32 saddr;
@@ -189,6 +197,28 @@ static DEFINE_PER_CPU(struct tcpprobe_stat, tcpprobe_stat);
 #else
 #define INIT_NET(x) init_net.x
 #endif
+
+//Needed because symbol ns_to_timespec is not always exported...
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
+struct timespec ns_to_timespec(const s64 nsec)
+{
+  struct timespec ts;
+  s32 rem;
+
+  if (!nsec)
+	return (struct timespec) {0, 0};
+
+  ts.tv_sec = div_s64_rem(nsec, NSEC_PER_SEC, &rem);
+  if (unlikely(rem < 0)) {
+	ts.tv_sec--;
+	rem += NSEC_PER_SEC;
+  }
+  ts.tv_nsec = rem;
+
+  return ts;
+}
+#endif
+
 
 static inline int tcp_probe_used(void)
 {
@@ -291,12 +321,22 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
   {
 	struct tcp_hash_flow *flow;
 	struct tcp_hash_flow *temp;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
+	struct timespec ts; 
+	ktime_t tstamp;
+	getnstimeofday(&ts);
+	tstamp = timespec_to_ktime(ts);
+#else
 	ktime_t tstamp = ktime_get();
+#endif
 
 	PRINT_DEBUG("Running purge timer.\n");
 	spin_lock(&tcp_hash_lock);
 	list_for_each_entry_safe(flow, temp, &tcp_flow_list, list) {
+
 	  struct timespec tv = ktime_to_timespec(ktime_sub(tstamp, flow->tstamp));
+
 	  if (tv.tv_sec >= purgetime) {
 		PRINT_DEBUG("Purging flow src: %pI4 dst: %pI4"
 					" src_port: %u dst_port: %u\n",
@@ -314,6 +354,28 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	mod_timer(&purge_timer, jiffies + (HZ * purgetime));			
   }
 
+  static void purge_all_flows(void)
+  {
+	//Method to make sure to release all memory before calling kmem_cache_destroy
+	struct tcp_hash_flow *flow;
+	struct tcp_hash_flow *temp;
+
+	PRINT_DEBUG("Purging all flows.\n");
+	spin_lock(&tcp_hash_lock);
+	list_for_each_entry_safe(flow, temp, &tcp_flow_list, list) {
+	  // Remove from Hashtable
+	  hlist_del(&flow->hlist);
+	  // Remove from Global List
+	  list_del(&flow->list);
+	  // Free memory
+	  tcp_hash_flow_free(flow);
+  
+	}
+	spin_unlock(&tcp_hash_lock);
+
+  }
+
+
 
   /*
    * Utility function to write the flow record
@@ -322,7 +384,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
    */
   static int write_flow(struct tcp_tuple *tuple, const struct tcp_sock *tp, ktime_t tstamp, 
 						u64 cumulative_bytes, u16 length, u32 ssthresh,
-					struct sock *sk){
+						struct sock *sk){
     
 	/* If log fills, just silently drop */
 	if (tcp_probe_avail() > 1) {
@@ -378,16 +440,27 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
    * Note: arguments must match tcp_done()!
    * 
    */
-  static int jtcp_done(struct sock *sk)
+  static void jtcp_done(struct sock *sk)
   {
   
 	const struct tcp_sock *tp = tcp_sk(sk);
 	const struct inet_sock *inet = inet_sk(sk);
-	ktime_t tstamp = ktime_get();
 	struct tcp_tuple tuple;
 	struct tcp_hash_flow *tcp_flow;
 	unsigned int hash;
 	u64 cumulative_bytes = 0;
+
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
+	struct timespec ts; 
+	ktime_t tstamp;
+	getnstimeofday(&ts);
+	tstamp = timespec_to_ktime(ts);
+#else
+	ktime_t tstamp = ktime_get();
+#endif
+
+
     
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32)
 	tuple.saddr = inet->inet_saddr;
@@ -454,7 +527,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 
   skip:
 	jprobe_return();
-	return 0;
+	return;
   }
 
   /*
@@ -469,11 +542,19 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	const struct inet_sock *inet = inet_sk(sk);
 	int should_write_flow = 0;
 	u16 length = skb->len;
-	ktime_t tstamp = ktime_get();
 	struct tcp_tuple tuple;
 	struct tcp_hash_flow *tcp_flow;
 	unsigned int hash;
 	u64 cumulative_bytes = 0;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
+	struct timespec ts; 
+	ktime_t tstamp;
+	getnstimeofday(&ts);
+	tstamp = timespec_to_ktime(ts);
+#else
+	ktime_t tstamp = ktime_get();
+#endif
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,32)
 	tuple.saddr = inet->inet_saddr;
@@ -555,7 +636,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	.kp = {
 	  .symbol_name	= "tcp_rcv_established",
 	},
-	.entry	= jtcp_rcv_established,
+	.entry	= (kprobe_opcode_t *) jtcp_rcv_established,
   };
 
 
@@ -563,16 +644,25 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	.kp = {
 	  .symbol_name = "tcp_done",
 	},
-	.entry = jtcp_done,
+	.entry = (kprobe_opcode_t *) jtcp_done,
   };
 
 
   static int tcpprobe_open(struct inode * inode, struct file * file)
   {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+	struct timespec ts; 
+#endif
+
 	/* Reset (empty) log */
 	spin_lock_bh(&tcp_probe.lock);
 	tcp_probe.head = tcp_probe.tail = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,21)
+	getnstimeofday(&ts);
+    tcp_probe.start = timespec_to_ktime(ts);
+#else
 	tcp_probe.start = ktime_get();
+#endif
 	spin_unlock_bh(&tcp_probe.lock);
 
 	return 0;
@@ -920,12 +1010,17 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	  goto err1;
 	}
     
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+	pr_info("Not registering jprobe on tcp_done as it is an inline method in this kernel version.\n");
+#else
     ret = register_jprobe(&tcp_jprobe_done);
     if (ret) {
 	  pr_err("Unable to register jprobe on tcp_done.\n");
-	  goto err1;
+	  goto err_tcpdone;
 	}
-    
+#endif 
+
 	pr_info("TCP probe registered (port=%d) bufsize=%u probetime=%d maxflows=%u\n", 
 			port, bufsize, probetime, maxflows);
 	PRINT_DEBUG("Sizes tcp_hash_flow: %zu, hlist_head = %zu tcp_hash = %zu\n", 
@@ -934,6 +1029,8 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 				sizeof(struct hlist_node), sizeof(struct list_head), sizeof(ktime_t), sizeof(struct tcp_tuple));
 	PRINT_DEBUG("Sizes tcp_log = %zu\n", sizeof (struct tcp_log));
 	return 0;
+  err_tcpdone:
+	unregister_jprobe(&tcp_jprobe);
   err1:
 	remove_proc_entry(PROC_TCPPROBE, INIT_NET(proc_net));
   err_free_proc_stat:
@@ -957,10 +1054,15 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	remove_proc_entry(PROC_STAT_TCPPROBE, INIT_NET(proc_net_stat));
 	unregister_sysctl_table(tcpprobe_sysctl_header);
 	unregister_jprobe(&tcp_jprobe);
+	
+#if LINUX_VERSION_CODE >=  KERNEL_VERSION(2,6,22)	
 	unregister_jprobe(&tcp_jprobe_done);
+#endif	
+
 	kfree(tcp_probe.log);
 	del_timer_sync(&purge_timer);
 	/* tcp flow table memory */
+	purge_all_flows();
 	kmem_cache_destroy(tcp_flow_cachep);
 	vfree(tcp_hash);
 	pr_info("TCP probe unregistered.\n");

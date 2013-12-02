@@ -23,6 +23,7 @@ Please review the:
 		- Sample an ACK only if the congestion window has changed every sampling period
 	- Sampling is done by maintaining a connections table (see the Connection hash table section below for details)
 - Add connection termination detection (reported as a magic value in the length field)
+	- The support for this functionnality is only available for kernel versions >= 2.6.22. Before that, the instrumented method (tcp_done) was defined as an inline method that can't be instrumented through jprobe. 
 
 ## Contents
 This repository contains:
