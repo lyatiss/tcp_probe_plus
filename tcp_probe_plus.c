@@ -47,7 +47,7 @@
 MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
 MODULE_DESCRIPTION("TCP cwnd snooper");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.1.5");
+MODULE_VERSION("1.1.6");
 
 static int port __read_mostly = 0;
 MODULE_PARM_DESC(port, "Port to match (0=all)");
@@ -132,6 +132,7 @@ struct tcp_hash_flow {
   u64 cumulative_bytes;
   /* remember last sequence number */
   u32 last_seq_num;
+  u64 first_seq_num;
 };
 
 /* statistics */
@@ -169,7 +170,7 @@ struct tcp_log {
   u8 frto_counter;
   u32 rqueue;
   u32 wqueue;
-
+  u64 socket_idf;
 };
 
 static struct {
@@ -384,7 +385,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
    */
   static int write_flow(struct tcp_tuple *tuple, const struct tcp_sock *tp, ktime_t tstamp, 
 						u64 cumulative_bytes, u16 length, u32 ssthresh,
-						struct sock *sk){
+						struct sock *sk, u64 first_seq_seen){
     
 	/* If log fills, just silently drop */
 	if (tcp_probe_avail() > 1) {
@@ -423,6 +424,8 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 		p->rqueue = max_t(int, tp->rcv_nxt - tp->copied_seq, 0);
 		p->wqueue = tp->write_seq - tp->snd_una;
 	  }
+
+	  p->socket_idf = first_seq_seen;
 
 	  tcp_probe.head = (tcp_probe.head + 1) & (bufsize - 1);
 	} else {
@@ -510,7 +513,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	spin_lock(&tcp_probe.lock);
 	TCPPROBE_STAT_INC(reset_flows);
 	write_flow(&tuple, tp, tstamp, 
-			   cumulative_bytes, UINT16_MAX, tcp_current_ssthresh(sk), sk);
+			   cumulative_bytes, UINT16_MAX, tcp_current_ssthresh(sk), sk, tcp_flow->first_seq_num);
     
 	spin_unlock(&tcp_probe.lock);
     
@@ -589,6 +592,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 					&tuple.saddr, &tuple.daddr,
 					ntohs(tuple.sport), ntohs(tuple.dport));
 		tcp_flow = init_tcp_hash_flow(&tuple, tstamp, hash);
+		tcp_flow->first_seq_num = tp->snd_nxt; 
 		should_write_flow = 1;
 	  }
 	} else {
@@ -611,8 +615,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	  tcp_flow->last_seq_num = tp->snd_nxt;
 	  cumulative_bytes = tcp_flow->cumulative_bytes;
 	}
-	spin_unlock(&tcp_hash_lock);
-
+	
 	/* Only update if port matches */
 	if ((port == 0 || ntohs(tuple.dport) == port ||
 		 ntohs(tuple.sport) == port) &&
@@ -621,12 +624,15 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
         
 	  spin_lock(&tcp_probe.lock);
 	  write_flow(&tuple, tp, tstamp, 
-				 cumulative_bytes, length, tcp_current_ssthresh(sk), sk);
+				 cumulative_bytes, length, tcp_current_ssthresh(sk), sk, tcp_flow->first_seq_num);
         
 	  spin_unlock(&tcp_probe.lock);
 	  wake_up(&tcp_probe.wait);
 		
 	}
+
+	spin_unlock(&tcp_hash_lock);
+
   skip:
 	jprobe_return();
 	return 0;
@@ -676,7 +682,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	  = ktime_to_timespec(ktime_sub(p->tstamp, tcp_probe.start));
 
 	return scnprintf(tbuf, n,
-					 "%lu.%09lu %pI4:%u %pI4:%u %d %#llx %#x %u %u %u %u %u %u %u %u %u %u %u %u\n",
+					 "%lu.%09lu %pI4:%u %pI4:%u %d %#llx %#x %u %u %u %u %u %u %u %u %u %u %u %u %#llx\n",
 					 (unsigned long) tv.tv_sec,
 					 (unsigned long) tv.tv_nsec,
 					 &p->saddr, ntohs(p->sport),
@@ -684,7 +690,7 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 					 p->length, p->snd_nxt, p->snd_una,
 					 p->snd_cwnd, p->ssthresh, p->snd_wnd, p->srtt,
 					 p->rttvar, p->rto, p->lost, p->retrans, p->inflight, p->frto_counter,
-					 p->rqueue, p->wqueue);
+					 p->rqueue, p->wqueue, p->socket_idf);
   }
 
   static ssize_t tcpprobe_read(struct file *file, char __user *buf,
