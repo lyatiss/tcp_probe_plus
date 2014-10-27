@@ -403,8 +403,16 @@ tcp_flow_find(const struct tcp_tuple *tuple, unsigned int hash)
 	  p->snd_cwnd = tp->snd_cwnd;
 	  p->snd_wnd = tp->snd_wnd;
 	  p->ssthresh = ssthresh;
-	  p->srtt = jiffies_to_usecs(tp->srtt)>> 3;
-	  p->rttvar = jiffies_to_usecs(tp->rttvar);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
+	  p->srtt = jiffies_to_usecs(tp->srtt) >> 3;
+	  p->rttvar = jiffies_to_usecs(tp->rttvar) >>3;
+#else
+	  /* element was renamed */ 
+	  p->srtt = tp->srtt_us >> 3;
+	  p->rttvar = tp->rttvar_us >>3;
+#endif
+
 	  p->lost = tp->lost_out;
 	  p->retrans = tp->total_retrans;
 	  p->inflight = tp->packets_out;
