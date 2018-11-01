@@ -4,6 +4,7 @@
 Please review the:
 - "LICENSE" file that is part of this distribution and in the same directory as this file
 - The header in the "tcp_probe_plus.c" file
+- test
 
 ## Description
 - Based on the "tcp_probe.c" Linux Kernel Module (LKM) by Stephen Hemminger
